@@ -50,7 +50,11 @@ fomit_frame_pointer := $(call cc-option, $(frame-pointer-flag), "")
 fno_stack_protector := $(call cc-option, -fno-stack-protector, "")
 fno_stack_protector_all := $(call cc-option, -fno-stack-protector-all, "")
 wno_frame_address := $(call cc-option, -Wno-frame-address, "")
-fno_pic := $(call cc-option, -fno-pic, "")
+ifeq ($(CONFIG_EFI), y)
+opt_pic := -fpic
+else
+opt_pic := $(call cc-option, -fno-pic, "")
+endif
 no_pie := $(call cc-option, -no-pie, "")
 wclobbered := $(call cc-option, -Wclobbered, "")
 wunused_but_set_parameter := $(call cc-option, -Wunused-but-set-parameter, "")
@@ -62,9 +66,14 @@ COMMON_CFLAGS += $(fno_stack_protector)
 COMMON_CFLAGS += $(fno_stack_protector_all)
 COMMON_CFLAGS += $(wno_frame_address)
 COMMON_CFLAGS += $(if $(U32_LONG_FMT),-D__U32_LONG_FMT__,)
-COMMON_CFLAGS += $(fno_pic) $(no_pie)
+COMMON_CFLAGS += $(opt_pic) $(no_pie)
 COMMON_CFLAGS += $(wclobbered)
 COMMON_CFLAGS += $(wunused_but_set_parameter)
+
+ifeq ($(CONFIG_EFI),y)
+COMMON_CFLAGS += -mno-red-zone -fshort-wchar -DCONFIG_EFI -ffreestanding \
+	-fno-stack-check
+endif
 
 CFLAGS += $(COMMON_CFLAGS)
 CFLAGS += $(wmissing_parameter_type)
@@ -74,6 +83,9 @@ CFLAGS += -Woverride-init -Wmissing-prototypes -Wstrict-prototypes
 autodepend-flags = -MMD -MF $(dir $*).$(notdir $*).d
 
 LDFLAGS += $(CFLAGS)
+ifeq ($(CONFIG_EFI),y)
+LDFLAGS += -nostdlib --warn-common --no-undefined --fatal-warnings
+endif
 
 $(libcflat): $(cflatobjs)
 	$(AR) rcs $@ $^

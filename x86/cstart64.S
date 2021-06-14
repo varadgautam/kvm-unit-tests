@@ -101,20 +101,26 @@ i = i + 1
 	.endr
 tss_end:
 
+#ifndef CONFIG_EFI
 mb_boot_info:	.quad 0
+#endif
 
 pt_root:	.quad ptl4
 
+#ifndef CONFIG_EFI
 .section .init
+#endif
 
 .code32
 
+#ifndef CONFIG_EFI
 mb_magic = 0x1BADB002
 mb_flags = 0x0
 
 	# multiboot header
 	.long mb_magic, mb_flags, 0 - (mb_magic + mb_flags)
 mb_cmdline = 16
+#endif
 
 MSR_GS_BASE = 0xc0000101
 
@@ -140,6 +146,7 @@ MSR_GS_BASE = 0xc0000101
 	wrmsr
 .endm
 
+#ifndef CONFIG_EFI
 .globl start
 start:
 	mov %ebx, mb_boot_info
@@ -231,16 +238,20 @@ ap_start32:
 	setup_percpu_area
 	call prepare_64
 	ljmpl $8, $ap_start64
+#endif	/* CONFIG_EFI */
 
 .code64
 save_id:
+#ifndef CONFIG_EFI
 	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	movl (%rax), %eax
 	shrl $24, %eax
 	lock btsl %eax, online_cpus
+#endif
 	retq
 
 ap_start64:
+#ifndef CONFIG_EFI
 	call reset_apic
 	call load_tss
 	call enable_apic
@@ -249,11 +260,18 @@ ap_start64:
 	sti
 	nop
 	lock incw cpu_online_count
-
+#endif
 1:	hlt
 	jmp 1b
 
+#ifdef CONFIG_EFI
+.globl _efi_pe_entry
+_efi_pe_entry:
+	ret
+#endif
+
 start64:
+#ifndef CONFIG_EFI
 	call reset_apic
 	call load_tss
 	call mask_pic_interrupts
@@ -277,9 +295,11 @@ start64:
 	call main
 	mov %eax, %edi
 	call exit
+#endif
 
 .globl setup_5level_page_table
 setup_5level_page_table:
+#ifndef CONFIG_EFI
 	/* Check if 5-level paging has already enabled */
 	mov %cr4, %rax
 	test $0x1000, %eax
@@ -287,6 +307,7 @@ setup_5level_page_table:
 
 	pushq $32
 	pushq $switch_to_5level
+#endif
 	lretq
 lvl5:
 	retq
@@ -299,6 +320,7 @@ online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0
 
 load_tss:
+#ifndef CONFIG_EFI
 	lidtq idt_descr
 	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	mov (%rax), %eax
@@ -317,9 +339,11 @@ load_tss:
 	mov %eax, tss_descr+8(%rbx)
 	lea tss_descr-gdt64(%rbx), %rax
 	ltr %ax
+#endif
 	ret
 
 ap_init:
+#ifndef CONFIG_EFI
 	cld
 	lea sipi_entry, %rsi
 	xor %rdi, %rdi
@@ -332,6 +356,7 @@ ap_init:
 1:	pause
 	cmpw %ax, cpu_online_count
 	jne 1b
+#endif
 	ret
 
 cpu_online_count:	.word 1

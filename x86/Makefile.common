@@ -38,7 +38,7 @@ COMMON_CFLAGS += -O1
 KEEP_FRAME_POINTER := y
 
 # We want to keep intermediate file: %.elf and %.o 
-.PRECIOUS: %.elf %.o
+.PRECIOUS: %.elf %.o %.so
 
 FLATLIBS = lib/libcflat.a
 %.elf: %.o $(FLATLIBS) $(SRCDIR)/x86/flat.lds $(cstart.o)
@@ -50,17 +50,33 @@ FLATLIBS = lib/libcflat.a
 	$(OBJCOPY) -O elf32-i386 $^ $@
 	@chmod a-x $@
 
-tests-common = $(TEST_DIR)/vmexit.flat $(TEST_DIR)/tsc.flat \
-               $(TEST_DIR)/smptest.flat  \
-               $(TEST_DIR)/realmode.flat $(TEST_DIR)/msr.flat \
-               $(TEST_DIR)/hypercall.flat $(TEST_DIR)/sieve.flat \
-               $(TEST_DIR)/kvmclock_test.flat  $(TEST_DIR)/eventinj.flat \
-               $(TEST_DIR)/s3.flat $(TEST_DIR)/pmu.flat $(TEST_DIR)/setjmp.flat \
-               $(TEST_DIR)/tsc_adjust.flat $(TEST_DIR)/asyncpf.flat \
-               $(TEST_DIR)/init.flat $(TEST_DIR)/smap.flat \
-               $(TEST_DIR)/hyperv_synic.flat $(TEST_DIR)/hyperv_stimer.flat \
-               $(TEST_DIR)/hyperv_connections.flat \
-               $(TEST_DIR)/umip.flat $(TEST_DIR)/tsx-ctrl.flat
+%.so: %.o $(FLATLIBS) $(cstart.o)
+	$(LD) -shared -nostdlib -znocombreloc -Bsymbolic -T $(SRCDIR)/x86/efi.lds $^ \
+		-o $@ $(FLATLIBS)
+	@chmod a-x $@
+
+%.efi: %.so
+	$(OBJCOPY) -j .text -j .sdata -j .data -j .dynamic -j .dynsym -j .rel \
+		    -j .rela -j .rel.* -j .rela.* -j .rel* -j .rela* \
+		    -j .reloc -j .init --target efi-app-x86_64 $*.so $@
+	@chmod a-x $@
+
+tests-flatonly = $(TEST_DIR)/realmode.$(out) $(TEST_DIR)/eventinj.$(out)		\
+		$(TEST_DIR)/smap.$(out) $(TEST_DIR)/umip.$(out)
+
+tests-common = $(TEST_DIR)/vmexit.$(out) $(TEST_DIR)/tsc.$(out)				\
+		$(TEST_DIR)/smptest.$(out) $(TEST_DIR)/msr.$(out)			\
+		$(TEST_DIR)/hypercall.$(out) $(TEST_DIR)/sieve.$(out)			\
+		$(TEST_DIR)/kvmclock_test.$(out) $(TEST_DIR)/s3.$(out)			\
+		$(TEST_DIR)/pmu.$(out) $(TEST_DIR)/setjmp.$(out)			\
+		$(TEST_DIR)/tsc_adjust.$(out) $(TEST_DIR)/asyncpf.$(out)		\
+		$(TEST_DIR)/init.$(out) $(TEST_DIR)/hyperv_synic.$(out)			\
+		$(TEST_DIR)/hyperv_stimer.$(out) $(TEST_DIR)/hyperv_connections.$(out)	\
+		$(TEST_DIR)/tsx-ctrl.$(out)
+
+ifneq ($(CONFIG_EFI),y)
+tests-common += $(tests-flatonly)
+endif
 
 test_cases: $(tests-common) $(tests)
 
@@ -72,14 +88,14 @@ $(TEST_DIR)/realmode.elf: $(TEST_DIR)/realmode.o
 
 $(TEST_DIR)/realmode.o: bits = $(if $(call cc-option,-m16,""),16,32)
 
-$(TEST_DIR)/kvmclock_test.elf: $(TEST_DIR)/kvmclock.o
+$(TEST_DIR)/kvmclock_test.$(bin): $(TEST_DIR)/kvmclock.o
 
-$(TEST_DIR)/hyperv_synic.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_synic.$(bin): $(TEST_DIR)/hyperv.o
 
-$(TEST_DIR)/hyperv_stimer.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_stimer.$(bin): $(TEST_DIR)/hyperv.o
 
-$(TEST_DIR)/hyperv_connections.elf: $(TEST_DIR)/hyperv.o
+$(TEST_DIR)/hyperv_connections.$(bin): $(TEST_DIR)/hyperv.o
 
 arch_clean:
-	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.flat $(TEST_DIR)/*.elf \
-	$(TEST_DIR)/.*.d lib/x86/.*.d \
+	$(RM) $(TEST_DIR)/*.o $(TEST_DIR)/*.$(out) $(TEST_DIR)/*.elf \
+	$(TEST_DIR)/.*.d lib/x86/.*.d $(TEST_DIR)/*.so  \
