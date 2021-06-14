@@ -5,28 +5,39 @@ ldarch = elf64-x86-64
 fcf_protection_full := $(call cc-option, -fcf-protection=full,)
 COMMON_CFLAGS += -mno-red-zone -mno-sse -mno-sse2 $(fcf_protection_full)
 
+ifeq ($(CONFIG_EFI),y)
+out = efi
+else
+out = flat
+endif
+
 cflatobjs += lib/x86/setjmp64.o
 cflatobjs += lib/x86/intel-iommu.o
 cflatobjs += lib/x86/usermode.o
 
-tests = $(TEST_DIR)/access.flat $(TEST_DIR)/apic.flat \
-	  $(TEST_DIR)/emulator.flat $(TEST_DIR)/idt_test.flat \
-	  $(TEST_DIR)/xsave.flat $(TEST_DIR)/rmap_chain.flat \
-	  $(TEST_DIR)/pcid.flat $(TEST_DIR)/debug.flat \
-	  $(TEST_DIR)/ioapic.flat $(TEST_DIR)/memory.flat \
-	  $(TEST_DIR)/pku.flat $(TEST_DIR)/hyperv_clock.flat
-tests += $(TEST_DIR)/syscall.flat
-tests += $(TEST_DIR)/svm.flat
-tests += $(TEST_DIR)/vmx.flat
-tests += $(TEST_DIR)/tscdeadline_latency.flat
-tests += $(TEST_DIR)/intel-iommu.flat
-tests += $(TEST_DIR)/vmware_backdoors.flat
-tests += $(TEST_DIR)/rdpru.flat
-tests += $(TEST_DIR)/pks.flat
-tests += $(TEST_DIR)/pmu_lbr.flat
+# Tests that have relocation / PIC problems and need more attention for EFI.
+tests_flatonly = $(TEST_DIR)/access.$(out) $(TEST_DIR)/emulator.$(out) \
+	$(TEST_DIR)/svm.$(out) $(TEST_DIR)/vmx.$(out) \
+	$(TEST_DIR)/vmware_backdoors.$(out)
+
+tests = $(TEST_DIR)/apic.$(out) $(TEST_DIR)/idt_test.$(out) \
+	  $(TEST_DIR)/xsave.$(out) $(TEST_DIR)/rmap_chain.$(out) \
+	  $(TEST_DIR)/pcid.$(out) $(TEST_DIR)/debug.$(out) \
+	  $(TEST_DIR)/ioapic.$(out) $(TEST_DIR)/memory.$(out) \
+	  $(TEST_DIR)/pku.$(out) $(TEST_DIR)/hyperv_clock.$(out)
+tests += $(TEST_DIR)/syscall.$(out)
+tests += $(TEST_DIR)/tscdeadline_latency.$(out)
+tests += $(TEST_DIR)/intel-iommu.$(out)
+tests += $(TEST_DIR)/rdpru.$(out)
+tests += $(TEST_DIR)/pks.$(out)
+tests += $(TEST_DIR)/pmu_lbr.$(out)
 
 ifneq ($(fcf_protection_full),)
-tests += $(TEST_DIR)/cet.flat
+tests_flatonly += $(TEST_DIR)/cet.$(out)
+endif
+
+ifneq ($(CONFIG_EFI),y)
+tests += $(tests_flatonly)
 endif
 
 include $(SRCDIR)/$(TEST_DIR)/Makefile.common
