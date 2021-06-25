@@ -1,8 +1,12 @@
 #include <alloc_phys.h>
 #include <linux/uefi.h>
+#include <elf.h>
 
 unsigned long __efiapi efi_main(efi_handle_t handle, efi_system_table_t *sys_tab);
 efi_system_table_t *efi_system_table = NULL;
+
+extern char ImageBase;
+extern char _DYNAMIC;
 
 static void efi_free_pool(void *ptr)
 {
@@ -93,11 +97,70 @@ static efi_status_t exit_efi(void *handle)
 	return EFI_SUCCESS;
 }
 
+static efi_status_t elf_reloc(unsigned long image_base, unsigned long dynamic)
+{
+	long relsz = 0, relent = 0;
+	Elf64_Rel *rel = 0;
+	Elf64_Dyn *dyn = (Elf64_Dyn *) dynamic;
+	unsigned long *addr;
+	int i;
+
+	for (i = 0; dyn[i].d_tag != DT_NULL; i++) {
+		switch (dyn[i].d_tag) {
+		case DT_RELA:
+			rel = (Elf64_Rel *)
+				((unsigned long) dyn[i].d_un.d_ptr + image_base);
+			break;
+		case DT_RELASZ:
+			relsz = dyn[i].d_un.d_val;
+			break;
+		case DT_RELAENT:
+			relent = dyn[i].d_un.d_val;
+			break;
+		default:
+			break;
+		}
+	}
+
+	if (!rel && relent == 0)
+		return EFI_SUCCESS;
+
+	if (!rel || relent == 0)
+		return EFI_LOAD_ERROR;
+
+	while (relsz > 0) {
+		/* apply the relocs */
+		switch (ELF64_R_TYPE (rel->r_info)) {
+		case R_X86_64_NONE:
+			break;
+		case R_X86_64_RELATIVE:
+			addr = (unsigned long *) (image_base + rel->r_offset);
+			*addr += image_base;
+			break;
+		default:
+			break;
+		}
+		rel = (Elf64_Rel *) ((char *) rel + relent);
+		relsz -= relent;
+	}
+	return EFI_SUCCESS;
+}
+
 unsigned long __efiapi efi_main(efi_handle_t handle, efi_system_table_t *sys_tab)
 {
+	unsigned long image_base, dyn;
 	efi_system_table = sys_tab;
 
 	exit_efi(handle);
+
+	image_base = (unsigned long) &ImageBase;
+	dyn = image_base + (unsigned long) &_DYNAMIC;
+
+	/* The EFI loader does not handle ELF relocations, so fixup
+	 * .dynamic addresses before proceeding any further. */
+	elf_reloc(image_base, dyn);
+
+	start64();
 
 	return 0;
 }
