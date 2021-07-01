@@ -7,6 +7,7 @@ efi_system_table_t *efi_system_table = NULL;
 
 extern char ImageBase;
 extern char _DYNAMIC;
+extern void start64(void);
 
 static void efi_free_pool(void *ptr)
 {

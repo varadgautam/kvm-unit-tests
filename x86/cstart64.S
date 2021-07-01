@@ -242,16 +242,17 @@ ap_start32:
 
 .code64
 save_id:
-#ifndef CONFIG_EFI
 	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	movl (%rax), %eax
 	shrl $24, %eax
+#ifdef CONFIG_EFI
+	lock btsl %eax, online_cpus(%rip)
+#else
 	lock btsl %eax, online_cpus
 #endif
 	retq
 
 ap_start64:
-#ifndef CONFIG_EFI
 	call reset_apic
 	call load_tss
 	call enable_apic
@@ -259,12 +260,38 @@ ap_start64:
 	call enable_x2apic
 	sti
 	nop
+#ifdef CONFIG_EFI
+	lock incw cpu_online_count(%rip)
+#else
 	lock incw cpu_online_count
 #endif
+
 1:	hlt
 	jmp 1b
 
 #ifdef CONFIG_EFI
+setup_gdt64:
+	lgdt gdt64_desc(%rip)
+	call load_tss
+
+	setup_segments
+
+	movabsq $flush_cs, %rax
+	pushq $0x8
+	pushq %rax
+	retfq
+flush_cs:
+	ret
+
+setup_idt64:
+	lidtq idt_descr(%rip)
+	ret
+
+setup_cr3:
+	movabsq $ptl4, %rax
+	mov %rax, %cr3
+	ret
+
 .globl _efi_pe_entry
 _efi_pe_entry:
 	# EFI image loader calls this with rcx=efi_handle,
@@ -276,15 +303,27 @@ _efi_pe_entry:
 	pushq   %rsi
 
 	call efi_main
-#endif
 
+.globl start64
 start64:
-#ifndef CONFIG_EFI
+	cli
+	lea stacktop(%rip), %rsp
+
+	setup_percpu_area
+	call setup_gdt64
+	call setup_idt64
+	call setup_cr3
+#else
+start64:
+#endif
 	call reset_apic
+#ifndef CONFIG_EFI
 	call load_tss
+#endif
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
+#ifndef CONFIG_EFI
 	mov mb_boot_info(%rip), %rbx
 	mov %rbx, %rdi
 	call setup_multiboot
@@ -292,18 +331,24 @@ start64:
 	mov mb_cmdline(%rbx), %eax
 	mov %rax, __args(%rip)
 	call __setup_args
+#endif
 
 	call ap_init
 	call enable_x2apic
 	call smp_init
 
+#ifdef CONFIG_EFI
+	mov $0, %edi
+	mov $0, %rsi
+	mov $0, %rdx
+#else
 	mov __argc(%rip), %edi
 	lea __argv(%rip), %rsi
 	lea __environ(%rip), %rdx
+#endif
 	call main
 	mov %eax, %edi
 	call exit
-#endif
 
 .globl setup_5level_page_table
 setup_5level_page_table:
@@ -330,6 +375,7 @@ online_cpus:
 load_tss:
 #ifndef CONFIG_EFI
 	lidtq idt_descr
+#endif
 	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	mov (%rax), %eax
 	shr $24, %eax
@@ -337,6 +383,18 @@ load_tss:
 	shl $4, %ebx
 	mov $((tss_end - tss) / max_cpus), %edx
 	imul %edx
+#ifdef CONFIG_EFI
+	lea tss(%rip), %rax
+	lea tss_descr(%rip), %rcx
+	add %rbx, %rcx
+	mov %ax, 2(%rcx)
+	shr $16, %rax
+	mov %al, 4(%rcx)
+	shr $8, %rax
+	mov %al, 7(%rcx)
+	shr $8, %rax
+	mov %eax, 8(%rcx)
+#else
 	add $tss, %rax
 	mov %ax, tss_descr+2(%rbx)
 	shr $16, %rax
@@ -345,9 +403,9 @@ load_tss:
 	mov %al, tss_descr+7(%rbx)
 	shr $8, %rax
 	mov %eax, tss_descr+8(%rbx)
+#endif
 	lea tss_descr-gdt64(%rbx), %rax
 	ltr %ax
-#endif
 	ret
 
 ap_init:
