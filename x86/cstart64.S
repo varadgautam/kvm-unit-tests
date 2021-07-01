@@ -267,7 +267,15 @@ ap_start64:
 #ifdef CONFIG_EFI
 .globl _efi_pe_entry
 _efi_pe_entry:
-	ret
+	# EFI image loader calls this with rcx=efi_handle,
+	# rdx=efi_system_table. Pass these to efi_main.
+	mov     %rcx, %rdi
+	mov     %rdx, %rsi
+
+	pushq   %rdi
+	pushq   %rsi
+
+	call efi_main
 #endif
 
 start64:

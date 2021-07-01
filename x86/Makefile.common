@@ -50,7 +50,7 @@ FLATLIBS = lib/libcflat.a
 	$(OBJCOPY) -O elf32-i386 $^ $@
 	@chmod a-x $@
 
-%.so: %.o $(FLATLIBS) $(cstart.o)
+%.so: %.o $(FLATLIBS) $(TEST_DIR)/efi_main.o $(cstart.o)
 	$(LD) -shared -nostdlib -znocombreloc -Bsymbolic -T $(SRCDIR)/x86/efi.lds $^ \
 		-o $@ $(FLATLIBS)
 	@chmod a-x $@
