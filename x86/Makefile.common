@@ -62,17 +62,18 @@ FLATLIBS = lib/libcflat.a
 	@chmod a-x $@
 
 tests-flatonly = $(TEST_DIR)/realmode.$(out) $(TEST_DIR)/eventinj.$(out)		\
-		$(TEST_DIR)/smap.$(out) $(TEST_DIR)/umip.$(out)
+		$(TEST_DIR)/smap.$(out) $(TEST_DIR)/umip.$(out)				\
+		$(TEST_DIR)/kvmclock_test.$(out) $(TEST_DIR)/hypercall.$(out)		\
+		$(TEST_DIR)/init.$(out)							\
+		$(TEST_DIR)/asyncpf.$(out) $(TEST_DIR)/hyperv_synic.$(out)		\
+		$(TEST_DIR)/hyperv_stimer.$(out) $(TEST_DIR)/hyperv_connections.$(out)
 
-tests-common = $(TEST_DIR)/vmexit.$(out) $(TEST_DIR)/tsc.$(out)				\
-		$(TEST_DIR)/smptest.$(out) $(TEST_DIR)/msr.$(out)			\
-		$(TEST_DIR)/hypercall.$(out) $(TEST_DIR)/sieve.$(out)			\
-		$(TEST_DIR)/kvmclock_test.$(out) $(TEST_DIR)/s3.$(out)			\
+tests-common = $(TEST_DIR)/tsc.$(out) $(TEST_DIR)/smptest.$(out)			\
+		$(TEST_DIR)/msr.$(out) $(TEST_DIR)/sieve.$(out)				\
+		$(TEST_DIR)/sieve.$(out) $(TEST_DIR)/s3.$(out)				\
 		$(TEST_DIR)/pmu.$(out) $(TEST_DIR)/setjmp.$(out)			\
-		$(TEST_DIR)/tsc_adjust.$(out) $(TEST_DIR)/asyncpf.$(out)		\
-		$(TEST_DIR)/init.$(out) $(TEST_DIR)/hyperv_synic.$(out)			\
-		$(TEST_DIR)/hyperv_stimer.$(out) $(TEST_DIR)/hyperv_connections.$(out)	\
-		$(TEST_DIR)/tsx-ctrl.$(out)
+		$(TEST_DIR)/tsc_adjust.$(out) $(TEST_DIR)/tsx-ctrl.$(out)		\
+		$(TEST_DIR)/vmexit.$(out)
 
 ifneq ($(CONFIG_EFI),y)
 tests-common += $(tests-flatonly)

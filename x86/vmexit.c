@@ -560,6 +560,12 @@ static void enable_nx(void *junk)
 
 static bool test_wanted(struct test *test, char *wanted[], int nwanted)
 {
+#ifdef CONFIG_EFI
+	if (strcmp(test->name, "pci-io") == 0 || strcmp(test->name, "pci-mem") == 0 )
+		return false;
+
+	return true;
+#else
 	int i;
 
 	if (!nwanted)
@@ -570,6 +576,7 @@ static bool test_wanted(struct test *test, char *wanted[], int nwanted)
 			return true;
 
 	return false;
+#endif
 }
 
 int main(int ac, char **av)
