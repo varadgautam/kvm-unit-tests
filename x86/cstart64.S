@@ -242,16 +242,17 @@ ap_start32:
 
 .code64
 save_id:
-#ifndef CONFIG_EFI
 	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	movl (%rax), %eax
 	shrl $24, %eax
+#ifdef CONFIG_EFI
+	lock btsl %eax, online_cpus(%rip)
+#else
 	lock btsl %eax, online_cpus
 #endif
 	retq
 
 ap_start64:
-#ifndef CONFIG_EFI
 	call reset_apic
 	call load_tss
 	call enable_apic
@@ -259,12 +260,37 @@ ap_start64:
 	call enable_x2apic
 	sti
 	nop
+#ifdef CONFIG_EFI
+	lock incw cpu_online_count(%rip)
+#else
 	lock incw cpu_online_count
 #endif
+
 1:	hlt
 	jmp 1b
 
 #ifdef CONFIG_EFI
+setup_gdt64:
+	lgdt gdt64_desc(%rip)
+
+	setup_segments
+
+	movabsq $flush_cs, %rax
+	pushq $0x8
+	pushq %rax
+	retfq
+flush_cs:
+	ret
+
+setup_idt64:
+	lidtq idt_descr(%rip)
+	ret
+
+setup_cr3:
+	movabsq $ptl4, %rax
+	mov %rax, %cr3
+	ret
+
 .globl _efi_pe_entry
 _efi_pe_entry:
 	# EFI image loader calls this with rcx=efi_handle,
@@ -276,15 +302,25 @@ _efi_pe_entry:
 	pushq   %rsi
 
 	call efi_main
-#endif
 
+.globl start64
 start64:
-#ifndef CONFIG_EFI
+	cli
+	lea stacktop(%rip), %rsp
+
+	setup_percpu_area
+	call setup_gdt64
+	call setup_idt64
+	call setup_cr3
+#else
+start64:
+#endif
 	call reset_apic
 	call load_tss
 	call mask_pic_interrupts
 	call enable_apic
 	call save_id
+#ifndef CONFIG_EFI
 	mov mb_boot_info(%rip), %rbx
 	mov %rbx, %rdi
 	call setup_multiboot
@@ -292,18 +328,24 @@ start64:
 	mov mb_cmdline(%rbx), %eax
 	mov %rax, __args(%rip)
 	call __setup_args
+#endif
 
 	call ap_init
 	call enable_x2apic
 	call smp_init
 
+#ifdef CONFIG_EFI
+	mov $0, %edi
+	mov $0, %rsi
+	mov $0, %rdx
+#else
 	mov __argc(%rip), %edi
 	lea __argv(%rip), %rsi
 	lea __environ(%rip), %rdx
+#endif
 	call main
 	mov %eax, %edi
 	call exit
-#endif
 
 .globl setup_5level_page_table
 setup_5level_page_table:
@@ -328,7 +370,10 @@ online_cpus:
 	.fill (max_cpus + 7) / 8, 1, 0
 
 load_tss:
-#ifndef CONFIG_EFI
+#ifdef CONFIG_EFI
+	mov $(tss_descr - gdt64), %rax
+	ltr %ax
+#else
 	lidtq idt_descr
 	mov $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
 	mov (%rax), %eax
