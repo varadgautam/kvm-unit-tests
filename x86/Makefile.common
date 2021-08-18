@@ -61,8 +61,8 @@ FLATLIBS = lib/libcflat.a
 		    -j .reloc -j .init --target efi-app-x86_64 $*.so $@
 	@chmod a-x $@
 
-tests-flatonly = $(TEST_DIR)/realmode.$(out) $(TEST_DIR)/eventinj.$(out)		\
-		$(TEST_DIR)/smap.$(out) $(TEST_DIR)/umip.$(out)
+tests-flatonly = $(TEST_DIR)/realmode.$(out)						\
+		$(TEST_DIR)/smap.$(out)
 
 tests-common = $(TEST_DIR)/vmexit.$(out) $(TEST_DIR)/tsc.$(out)				\
 		$(TEST_DIR)/smptest.$(out) $(TEST_DIR)/msr.$(out)			\
@@ -72,7 +72,8 @@ tests-common = $(TEST_DIR)/vmexit.$(out) $(TEST_DIR)/tsc.$(out)				\
 		$(TEST_DIR)/tsc_adjust.$(out) $(TEST_DIR)/asyncpf.$(out)		\
 		$(TEST_DIR)/init.$(out) $(TEST_DIR)/hyperv_synic.$(out)			\
 		$(TEST_DIR)/hyperv_stimer.$(out) $(TEST_DIR)/hyperv_connections.$(out)	\
-		$(TEST_DIR)/tsx-ctrl.$(out)
+		$(TEST_DIR)/tsx-ctrl.$(out)						\
+		$(TEST_DIR)/eventinj.$(out) $(TEST_DIR)/umip.$(out)
 
 ifneq ($(CONFIG_EFI),y)
 tests-common += $(tests-flatonly)

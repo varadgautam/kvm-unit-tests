@@ -18,9 +18,8 @@ cflatobjs += lib/x86/intel-iommu.o
 cflatobjs += lib/x86/usermode.o
 
 # Tests that have relocation / PIC problems and need more attention for EFI.
-tests_flatonly = $(TEST_DIR)/access.$(out) $(TEST_DIR)/emulator.$(out) \
+tests_flatonly = $(TEST_DIR)/access.$(out) \
 	$(TEST_DIR)/svm.$(out) $(TEST_DIR)/vmx.$(out) \
-	$(TEST_DIR)/vmware_backdoors.$(out)
 
 tests = $(TEST_DIR)/apic.$(out) $(TEST_DIR)/idt_test.$(out) \
 	  $(TEST_DIR)/xsave.$(out) $(TEST_DIR)/rmap_chain.$(out) \
@@ -33,6 +32,8 @@ tests += $(TEST_DIR)/intel-iommu.$(out)
 tests += $(TEST_DIR)/rdpru.$(out)
 tests += $(TEST_DIR)/pks.$(out)
 tests += $(TEST_DIR)/pmu_lbr.$(out)
+tests += $(TEST_DIR)/emulator.$(out)
+tests += $(TEST_DIR)/vmware_backdoors.$(out)
 
 ifneq ($(fcf_protection_full),)
 tests_flatonly += $(TEST_DIR)/cet.$(out)
