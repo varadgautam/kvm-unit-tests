@@ -25,6 +25,8 @@ cflatobjs += lib/x86/delay.o
 ifeq ($(TARGET_EFI),y)
 cflatobjs += lib/x86/amd_sev.o
 cflatobjs += lib/x86/amd_sev_vc.o
+cflatobjs += lib/x86/insn/insn.o
+cflatobjs += lib/x86/insn/inat.o
 cflatobjs += lib/efi.o
 cflatobjs += x86/efi/reloc_x86_64.o
 endif
