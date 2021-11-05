@@ -2,6 +2,7 @@
 #define _X86_PROCESSOR_H_
 
 #include "libcflat.h"
+#include "bitops.h"
 #include "desc.h"
 #include "msr.h"
 #include <stdint.h>
@@ -660,6 +661,14 @@ static inline void set_bit(int bit, u8 *addr)
 {
 	__asm__ __volatile__("bts %1, %0"
 			     : "+m" (*addr) : "Ir" (bit) : "cc", "memory");
+}
+
+static inline int test_bit(int nr, const volatile unsigned long *addr)
+{
+	const volatile unsigned long *word = addr + BIT_WORD(nr);
+	unsigned long mask = BIT_MASK(nr);
+
+	return (*word & mask) != 0;
 }
 
 static inline void flush_tlb(void)
