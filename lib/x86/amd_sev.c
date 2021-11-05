@@ -14,6 +14,7 @@
 #include "x86/vm.h"
 
 static unsigned short amd_sev_c_bit_pos;
+phys_addr_t ghcb_addr;
 
 bool amd_sev_enabled(void)
 {
@@ -126,7 +127,7 @@ void setup_ghcb_pte(pgd_t *page_table)
 	 * function searches GHCB's L1 pte, creates corresponding L1 ptes if not
 	 * found, and unsets the c-bit of GHCB's L1 pte.
 	 */
-	phys_addr_t ghcb_addr, ghcb_base_addr;
+	phys_addr_t ghcb_base_addr;
 	pteval_t *pte;
 
 	/* Read the current GHCB page addr */

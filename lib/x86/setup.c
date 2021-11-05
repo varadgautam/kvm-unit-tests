@@ -346,6 +346,14 @@ void setup_efi(efi_bootinfo_t *efi_bootinfo)
 	phys_alloc_init(efi_bootinfo->free_mem_start, efi_bootinfo->free_mem_size);
 	setup_efi_rsdp(efi_bootinfo->rsdp);
 	setup_page_table();
+
+	if (amd_sev_es_enabled()) {
+		/*
+		 * Switch away from the UEFI-installed #VC handler.
+		 * GHCB has already been mapped at this point.
+		 */
+		setup_amd_sev_es_vc();
+	}
 }
 
 #endif /* TARGET_EFI */

@@ -3,6 +3,9 @@
 #include "processor.h"
 #include <setjmp.h>
 #include "apic-defs.h"
+#ifdef TARGET_EFI
+#include "amd_sev.h"
+#endif
 
 /* Boot-related data structures */
 
@@ -228,6 +231,9 @@ EX_E(ac, 17);
 EX(mc, 18);
 EX(xm, 19);
 EX_E(cp, 21);
+#ifdef TARGET_EFI
+EX_E(vc, 29);
+#endif
 
 asm (".pushsection .text \n\t"
      "__handle_exception: \n\t"
@@ -291,6 +297,17 @@ void setup_idt(void)
     handle_exception(0, check_exception_table);
     handle_exception(6, check_exception_table);
     handle_exception(13, check_exception_table);
+}
+
+void setup_amd_sev_es_vc(void)
+{
+#ifdef TARGET_EFI
+	if (!amd_sev_es_enabled())
+		return;
+
+	set_idt_entry(29, &vc_fault, 0);
+	handle_exception(29, handle_sev_es_vc);
+#endif
 }
 
 unsigned exception_vector(void)
