@@ -30,6 +30,12 @@ gen_se_header=
 page_size=
 earlycon=
 target_efi=
+# For AMD SEV-ES, the tests build to use their own #VC exception handler
+# by default, instead of using the one installed by UEFI. This ensures
+# that the tests do not depend on UEFI state after ExitBootServices.
+# To continue using the UEFI #VC handler, ./configure can be run with
+# --amdsev-efi-vc.
+amdsev_efi_vc=
 
 usage() {
     cat <<-EOF
@@ -75,6 +81,8 @@ usage() {
 	                           Specify a PL011 compatible UART at address ADDR. Supported
 	                           register stride is 32 bit only.
 	    --target-efi           Boot and run from UEFI
+	    --amdsev-efi-vc        Use UEFI-provided #VC handlers on AMD SEV/ES. Requires
+	                           --target-efi.
 EOF
     exit 1
 }
@@ -145,6 +153,9 @@ while [[ "$1" = -* ]]; do
 	--target-efi)
 	    target_efi=y
 	    ;;
+	--amdsev-efi-vc)
+	    amdsev_efi_vc=y
+	    ;;
 	--help)
 	    usage
 	    ;;
@@ -204,8 +215,17 @@ elif [ "$processor" = "arm" ]; then
     processor="cortex-a15"
 fi
 
+if [ "$amdsev_efi_vc" ] && [ "$arch" != "x86_64" ]; then
+    echo "--amdsev-efi-vc requires arch x86_64."
+    usage
+fi
+
 if [ "$arch" = "i386" ] || [ "$arch" = "x86_64" ]; then
     testdir=x86
+    if [ "$amdsev_efi_vc" ] && [ -z "$target_efi" ]; then
+        echo "--amdsev-efi-vc requires --target-efi."
+        usage
+    fi
 elif [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then
     testdir=arm
     if [ "$target" = "qemu" ]; then
@@ -363,6 +383,7 @@ WA_DIVIDE=$wa_divide
 GENPROTIMG=${GENPROTIMG-genprotimg}
 HOST_KEY_DOCUMENT=$host_key_document
 TARGET_EFI=$target_efi
+AMDSEV_EFI_VC=$amdsev_efi_vc
 GEN_SE_HEADER=$gen_se_header
 EOF
 if [ "$arch" = "arm" ] || [ "$arch" = "arm64" ]; then

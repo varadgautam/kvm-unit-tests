@@ -46,6 +46,9 @@ else
 $(error Cannot build $(ARCH_NAME) tests as EFI apps)
 endif
 EFI_CFLAGS := -DTARGET_EFI
+ifeq ($(AMDSEV_EFI_VC),y)
+EFI_CFLAGS += -DAMDSEV_EFI_VC
+endif
 # The following CFLAGS and LDFLAGS come from:
 #   - GNU-EFI/Makefile.defaults
 #   - GNU-EFI/apps/Makefile
