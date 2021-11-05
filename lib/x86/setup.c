@@ -327,6 +327,14 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	smp_init();
 	setup_page_table();
 
+#ifndef AMDSEV_EFI_VC
+	/*
+	 * Switch away from the UEFI-installed #VC handler.
+	 * GHCB has already been mapped at this point.
+	 */
+	setup_amd_sev_es_vc();
+#endif /* AMDSEV_EFI_VC */
+
 	return EFI_SUCCESS;
 }
 
