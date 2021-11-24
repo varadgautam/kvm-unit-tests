@@ -10,9 +10,16 @@
  *   tools/arch/x86/include/asm/insn.h
  */
 
-#include <asm/byteorder.h>
+//#include <asm/byteorder.h>
 /* insn_attr_t is defined in inat.h */
 #include "inat.h" /* __ignore_sync_check__ */
+#include "libcflat.h"
+#include "x86/desc.h"
+#include "x86/processor.h"
+#include "asm/io.h"
+
+#define __le32_to_cpu le32_to_cpu
+#define __cpu_to_le32 cpu_to_le32
 
 #if defined(__BYTE_ORDER) ? __BYTE_ORDER == __LITTLE_ENDIAN : defined(__LITTLE_ENDIAN)
 
@@ -276,5 +283,8 @@ static inline int insn_masking_exception(struct insn *insn)
 		(insn->opcode.bytes[0] == MOV_SREG_OPCODE &&
 		 X86_MODRM_REG(insn->modrm.bytes[0]) == 2);
 }
+
+int insn_get_modrm_reg_off(struct insn *insn, struct ex_regs *regs);
+void *insn_get_addr_ref(struct insn *insn, struct ex_regs *regs);
 
 #endif /* _ASM_X86_INSN_H */

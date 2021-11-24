@@ -20,6 +20,12 @@ struct ex_regs {
     unsigned long rflags;
 };
 
+inline unsigned long regs_get_register(struct ex_regs *regs,
+					      unsigned int offset)
+{
+	return *(unsigned long *)((unsigned long)regs + offset);
+}
+
 typedef void (*handler)(struct ex_regs *regs);
 
 typedef struct {
