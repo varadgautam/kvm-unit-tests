@@ -34,6 +34,8 @@ tests += $(TEST_DIR)/pmu_lbr.$(exe)
 
 ifeq ($(TARGET_EFI),y)
 tests += $(TEST_DIR)/amd_sev.$(exe)
+tests += $(TEST_DIR)/svm_tests.o
+tests += $(TEST_DIR)/svm.$(exe)
 endif
 
 # The following test cases are disabled when building EFI tests because they

@@ -441,6 +441,7 @@ static void prepare_mode_switch(struct svm_test *test)
 
 static void test_mode_switch(struct svm_test *test)
 {
+#ifndef TARGET_EFI
     asm volatile("	cli\n"
 		 "	ljmp *1f\n" /* jump to 32-bit code segment */
 		 "1:\n"
@@ -492,6 +493,7 @@ static void test_mode_switch(struct svm_test *test)
 		 :: [cs16] "i"(KERNEL_CS16), [ds16] "i"(KERNEL_DS16),
 		    [cs32] "i"(KERNEL_CS32), [cs64] "i"(KERNEL_CS64)
 		 : "rax", "rbx", "rcx", "rdx", "memory");
+#endif
 }
 
 static bool mode_switch_finished(struct svm_test *test)

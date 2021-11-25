@@ -195,20 +195,20 @@ struct regs get_regs(void)
 // rax handled specially below
 
 #define SAVE_GPR_C                              \
-        "xchg %%rbx, regs+0x8\n\t"              \
-        "xchg %%rcx, regs+0x10\n\t"             \
-        "xchg %%rdx, regs+0x18\n\t"             \
-        "xchg %%rbp, regs+0x28\n\t"             \
-        "xchg %%rsi, regs+0x30\n\t"             \
-        "xchg %%rdi, regs+0x38\n\t"             \
-        "xchg %%r8, regs+0x40\n\t"              \
-        "xchg %%r9, regs+0x48\n\t"              \
-        "xchg %%r10, regs+0x50\n\t"             \
-        "xchg %%r11, regs+0x58\n\t"             \
-        "xchg %%r12, regs+0x60\n\t"             \
-        "xchg %%r13, regs+0x68\n\t"             \
-        "xchg %%r14, regs+0x70\n\t"             \
-        "xchg %%r15, regs+0x78\n\t"
+        "xchg %%rbx, regs+0x8(%%rip)\n\t"              \
+        "xchg %%rcx, regs+0x10(%%rip)\n\t"             \
+        "xchg %%rdx, regs+0x18(%%rip)\n\t"             \
+        "xchg %%rbp, regs+0x28(%%rip)\n\t"             \
+        "xchg %%rsi, regs+0x30(%%rip)\n\t"             \
+        "xchg %%rdi, regs+0x38(%%rip)\n\t"             \
+        "xchg %%r8, regs+0x40(%%rip)\n\t"              \
+        "xchg %%r9, regs+0x48(%%rip)\n\t"              \
+        "xchg %%r10, regs+0x50(%%rip)\n\t"             \
+        "xchg %%r11, regs+0x58(%%rip)\n\t"             \
+        "xchg %%r12, regs+0x60(%%rip)\n\t"             \
+        "xchg %%r13, regs+0x68(%%rip)\n\t"             \
+        "xchg %%r14, regs+0x70(%%rip)\n\t"             \
+        "xchg %%r15, regs+0x78(%%rip)\n\t"
 
 #define LOAD_GPR_C      SAVE_GPR_C
 
@@ -216,18 +216,18 @@ struct svm_test *v2_test;
 
 #define ASM_PRE_VMRUN_CMD                       \
                 "vmload %%rax\n\t"              \
-                "mov regs+0x80, %%r15\n\t"      \
+                "mov regs+0x80(%%rip), %%r15\n\t"      \
                 "mov %%r15, 0x170(%%rax)\n\t"   \
-                "mov regs, %%r15\n\t"           \
+                "mov regs(%%rip), %%r15\n\t"           \
                 "mov %%r15, 0x1f8(%%rax)\n\t"   \
                 LOAD_GPR_C                      \
 
 #define ASM_POST_VMRUN_CMD                      \
                 SAVE_GPR_C                      \
                 "mov 0x170(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs+0x80\n\t"      \
+                "mov %%r15, regs+0x80(%%rip)\n\t"      \
                 "mov 0x1f8(%%rax), %%r15\n\t"   \
-                "mov %%r15, regs\n\t"           \
+                "mov %%r15, regs(%%rip)\n\t"           \
                 "vmsave %%rax\n\t"              \
 
 u64 guest_stack[10000];
