@@ -30,6 +30,11 @@ the env variable `EFI_UEFI`:
 
     EFI_UEFI=/path/to/OVMF.fd ./x86/efi/run ./x86/msr.efi
 
+To run the tests under AMD SEV/SEV-ES, set env variable `AMDSEV=sev` or
+`AMDSEV=sev-es`. This adds the desired guest policy to qemu command line.
+
+    AMDSEV=sev-es EFI_UEFI=/path/to/OVMF.fd ./x86/efi/run ./x86/amd_sev.efi
+
 ## Code structure
 
 ### Code from GNU-EFI

@@ -43,6 +43,21 @@ fi
 mkdir -p "$EFI_CASE_DIR"
 cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
 
+amdsev_opts=
+if [ -n "$AMDSEV" ]; then
+	policy=
+	if [ "$AMDSEV" = "sev" ]; then
+		policy="0x1"
+	elif [ "$AMDSEV" = "sev-es" ]; then
+		policy="0x5"
+	else
+		echo "Cannot set AMDSEV policy. AMDSEV must be one of 'sev', 'sev-es'."
+		exit 2
+	fi
+
+	amdsev_opts="-object sev-guest,id=sev0,cbitpos=51,reduced-phys-bits=1,policy=$policy -machine memory-encryption=sev0"
+fi
+
 # Run test case with 256MiB QEMU memory. QEMU default memory size is 128MiB.
 # After UEFI boot up and we call `LibMemoryMap()`, the largest consecutive
 # memory region is ~42MiB. Although this is sufficient for many test cases to
@@ -61,4 +76,5 @@ cp "$EFI_SRC/$EFI_CASE.efi" "$EFI_CASE_BINARY"
 	-nographic \
 	-m 256 \
 	"$@" \
+	$amdsev_opts \
 	-smp "$EFI_SMP"
