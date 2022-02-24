@@ -6,6 +6,7 @@
 #include "apic.h"
 #include "fwcfg.h"
 #include "desc.h"
+#include "delay.h"
 
 #define IPI_VECTOR 0x20
 
@@ -122,8 +123,6 @@ void smp_init(void)
     int i;
     void ipi_entry(void);
 
-    _cpu_count = fwcfg_get_nb_cpus();
-
     setup_idt();
     init_apic_map();
     set_idt_entry(IPI_VECTOR, ipi_entry, 0);
@@ -149,4 +148,25 @@ void smp_reset_apic(void)
         on_cpu(i, do_reset_apic, 0);
 
     atomic_inc(&active_cpus);
+}
+
+void ap_init(void)
+{
+    u8 *dst_addr = (u8 *) 0;
+    volatile u32 *lapic_icr = (volatile u32 *) (APIC_DEFAULT_PHYS_BASE + APIC_ICR);
+
+    asm volatile("cld");
+
+    memcpy(dst_addr, &sipi_entry, (&sipi_end - &sipi_entry));
+
+    *lapic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT;
+    delay(IPI_DELAY);
+    *lapic_icr = APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_STARTUP;
+    delay(IPI_DELAY);
+
+    _cpu_count = fwcfg_get_nb_cpus();
+
+    while (_cpu_count != cpu_online_count) {
+        delay(IPI_DELAY);
+    }
 }
