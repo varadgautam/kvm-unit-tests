@@ -18,6 +18,10 @@ static volatile int ipi_done;
 static volatile bool ipi_wait;
 static int _cpu_count;
 static atomic_t active_cpus;
+unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
+volatile unsigned cpu_online_count = 1;
+extern u8 sipi_entry;
+extern u8 sipi_end;
 
 static __attribute__((used)) void ipi(void)
 {

@@ -11,11 +11,20 @@
 #include "alloc_phys.h"
 #include "argv.h"
 #include "desc.h"
+#include "delay.h"
 #include "apic.h"
 #include "apic-defs.h"
 #include "asm/setup.h"
+#include "atomic.h"
+#include "processor.h"
 
 extern char edata;
+extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
+extern volatile unsigned cpu_online_count;
+
+/* From x86/efi/efistart64.S */
+extern void load_idt(void);
+extern void load_gdt_tss(size_t tss_offset);
 
 struct mbi_bootinfo {
 	u32 flags;
@@ -167,11 +176,16 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 	initrd_size = mods->end - mods->start;
 }
 
-#ifdef TARGET_EFI
+static void setup_gdt_tss(void)
+{
+	size_t tss_offset;
 
-/* From x86/efi/efistart64.S */
-extern void load_idt(void);
-extern void load_gdt_tss(size_t tss_offset);
+	/* 64-bit setup_tss does not use the stacktop argument.  */
+	tss_offset = setup_tss(NULL);
+	load_gdt_tss(tss_offset);
+}
+
+#ifdef TARGET_EFI
 
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
@@ -269,15 +283,6 @@ static void setup_page_table(void)
 	write_cr3((ulong)&ptl4);
 }
 
-static void setup_gdt_tss(void)
-{
-	size_t tss_offset;
-
-	/* 64-bit setup_tss does not use the stacktop argument.  */
-	tss_offset = setup_tss(NULL);
-	load_gdt_tss(tss_offset);
-}
-
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -344,4 +349,25 @@ void setup_libcflat(void)
 		if ((str = getenv("BOOTLOADER")) && atol(str) != 0)
 			add_setup_arg("bootloader");
 	}
+}
+
+void save_id(void)
+{
+	u32 id = apic_id();
+
+	/* atomic_fetch_or() emits `lock or %dl, (%eax)` */
+	atomic_fetch_or(&online_cpus[id / 8], (1 << (id % 8)));
+}
+
+void ap_start64(void)
+{
+	load_idt();
+	setup_gdt_tss();
+	reset_apic();
+	delay(10 * IPI_DELAY);
+	save_id();
+	enable_x2apic();
+	sti();
+	atomic_fetch_inc(&cpu_online_count);
+	asm volatile("1: hlt; jmp 1b");
 }

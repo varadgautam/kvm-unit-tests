@@ -16,4 +16,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo);
 void setup_5level_page_table(void);
 #endif /* TARGET_EFI */
 
+void ap_start64(void);
+void save_id(void);
+
 #endif /* _X86_ASM_SETUP_H_ */

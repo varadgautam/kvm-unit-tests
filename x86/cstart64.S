@@ -1,9 +1,6 @@
 
 #include "apic-defs.h"
 
-.globl online_cpus
-.globl cpu_online_count
-
 ipi_vector = 0x20
 
 max_cpus = MAX_TEST_CPUS
@@ -180,25 +177,37 @@ ap_start32:
 	ljmpl $8, $ap_start64
 
 .code64
-save_id:
-	movl $(APIC_DEFAULT_PHYS_BASE + APIC_ID), %eax
-	movl (%rax), %eax
-	shrl $24, %eax
-	lock btsl %eax, online_cpus
+.globl load_idt
+load_idt:
+	lidtq idt_descr(%rip)
 	retq
 
-ap_start64:
-	call reset_apic
-	load_tss
-	call enable_apic
-	call save_id
-	call enable_x2apic
-	sti
-	nop
-	lock incw cpu_online_count
+.globl load_gdt_tss
+load_gdt_tss:
+	/* Load GDT */
+	lgdt gdt_descr(%rip)
 
-1:	hlt
-	jmp 1b
+	/* Load TSS */
+	mov %rdi, %rax
+	ltr %ax
+
+	/* Update data segments */
+	mov $0x10, %ax /* 3rd entry in gdt64: 32/64-bit data segment */
+	mov %ax, %ds
+	mov %ax, %es
+	mov %ax, %fs
+	mov %ax, %gs
+	mov %ax, %ss
+
+	/*
+	 * Update the code segment by putting it on the stack before the return
+	 * address, then doing a far return: this will use the new code segment
+	 * along with the address.
+	 */
+	popq %rdi
+	pushq $0x08 /* 2nd entry in gdt64: 64-bit code segment */
+	pushq %rdi
+	lretq
 
 start64:
 	call reset_apic
@@ -238,9 +247,6 @@ setup_5level_page_table:
 lvl5:
 	retq
 
-online_cpus:
-	.fill (max_cpus + 7) / 8, 1, 0
-
 ap_init:
 	cld
 	lea sipi_entry, %rsi
@@ -256,5 +262,3 @@ ap_init:
 	jne 1b
 	ret
 
-.align 2
-cpu_online_count:	.word 1
