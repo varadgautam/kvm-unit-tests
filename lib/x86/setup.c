@@ -364,8 +364,8 @@ void ap_start64(void)
 	load_idt();
 	setup_gdt_tss();
 	reset_apic();
-	delay(10 * IPI_DELAY);
 	save_id();
+	delay(10 * IPI_DELAY);
 	enable_x2apic();
 	sti();
 	atomic_fetch_inc(&cpu_online_count);
