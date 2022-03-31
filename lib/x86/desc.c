@@ -293,6 +293,11 @@ void setup_idt(void)
     handle_exception(13, check_exception_table);
 }
 
+void load_idt(void)
+{
+	lidt(&idt_descr);
+}
+
 unsigned exception_vector(void)
 {
     unsigned char vector;
