@@ -170,7 +170,9 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 #ifdef CONFIG_EFI
 
 /* From x86/efi/efistart64.S */
-extern void load_gdt_tss(size_t tss_offset);
+extern void update_cs(void);
+extern void setup_segments64(u64 gs_base);
+extern u8 stacktop;
 
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
@@ -271,10 +273,15 @@ static void setup_page_table(void)
 static void setup_gdt_tss(void)
 {
 	size_t tss_offset;
+	u64 gs_base;
 
 	/* 64-bit setup_tss does not use the stacktop argument.  */
 	tss_offset = setup_tss(NULL);
 	load_gdt_tss(tss_offset);
+
+	update_cs();
+	gs_base = (u64)(&stacktop) - (PAGE_SIZE * (apic_id() + 1));
+	setup_segments64(gs_base);
 }
 
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)

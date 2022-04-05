@@ -37,15 +37,8 @@ ptl4:
 .code64
 .text
 
-.globl load_gdt_tss
-load_gdt_tss:
-	/* Load GDT */
-	lgdt gdt_descr(%rip)
-
-	/* Load TSS */
-	mov %rdi, %rax
-	ltr %ax
-
+.globl setup_segments64
+setup_segments64:
 	/* Update data segments */
 	mov $0x10, %ax /* 3rd entry in gdt64: 32/64-bit data segment */
 	mov %ax, %ds
@@ -54,6 +47,17 @@ load_gdt_tss:
 	mov %ax, %gs
 	mov %ax, %ss
 
+	/* Setup percpu base */
+	MSR_GS_BASE = 0xc0000101
+	mov %rdi, %rax
+	mov $0, %edx
+	mov $MSR_GS_BASE, %ecx
+	wrmsr
+
+	ret
+
+.globl update_cs
+update_cs:
 	/*
 	 * Update the code segment by putting it on the stack before the return
 	 * address, then doing a far return: this will use the new code segment
