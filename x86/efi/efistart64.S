@@ -6,6 +6,17 @@
 
 .data
 
+max_cpus = MAX_TEST_CPUS
+
+/* Reserve stack in .data */
+	. = . + 4096 * max_cpus
+	.align 16
+.globl stacktop
+stacktop:
+
+.globl smp_stacktop
+smp_stacktop:	.long 0
+
 .align PAGE_SIZE
 .globl ptl2
 ptl2:
@@ -85,6 +96,10 @@ gdt32_descr:
 sipi_end:
 
 .code32
-.globl ap_start32
-ap_start32:
-	jmp ap_start32
+
+#include "../start32.S"
+
+.code64:
+
+ap_start64:
+	jmp ap_start64
