@@ -14,8 +14,12 @@
 #include "apic.h"
 #include "apic-defs.h"
 #include "asm/setup.h"
+#include "processor.h"
+#include "atomic.h"
 
 extern char edata;
+extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
+extern unsigned cpu_online_count;
 
 struct mbi_bootinfo {
 	u32 flags;
@@ -170,10 +174,27 @@ void setup_multiboot(struct mbi_bootinfo *bi)
 #ifdef CONFIG_EFI
 
 /* From x86/efi/efistart64.S */
+
 extern void update_cs(void);
 extern void setup_segments64(u64 gs_base);
 extern u8 stacktop;
+#endif
 
+static void setup_gdt_tss(void)
+{
+	size_t tss_offset;
+
+	/* 64-bit setup_tss does not use the stacktop argument.  */
+	tss_offset = setup_tss(NULL);
+	load_gdt_tss(tss_offset);
+#ifdef CONFIG_EFI
+	update_cs();
+	u64 gs_base = (u64)(&stacktop) - (PAGE_SIZE * (apic_id() + 1));
+	setup_segments64(gs_base);
+#endif
+}
+
+#ifdef CONFIG_EFI
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
 	int i;
@@ -270,20 +291,6 @@ static void setup_page_table(void)
 	write_cr3((ulong)&ptl4);
 }
 
-static void setup_gdt_tss(void)
-{
-	size_t tss_offset;
-	u64 gs_base;
-
-	/* 64-bit setup_tss does not use the stacktop argument.  */
-	tss_offset = setup_tss(NULL);
-	load_gdt_tss(tss_offset);
-
-	update_cs();
-	gs_base = (u64)(&stacktop) - (PAGE_SIZE * (apic_id() + 1));
-	setup_segments64(gs_base);
-}
-
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -330,6 +337,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	mask_pic_interrupts();
 	setup_page_table();
 	enable_apic();
+	save_id();
 	ap_init();
 	enable_x2apic();
 	smp_init();
@@ -351,4 +359,25 @@ void setup_libcflat(void)
 		if ((str = getenv("BOOTLOADER")) && atol(str) != 0)
 			add_setup_arg("bootloader");
 	}
+}
+
+void save_id(void)
+{
+	u32 id = apic_id();
+
+	/* atomic_fetch_or() emits `lock or %dl, (%eax)` */
+	atomic_fetch_or(&online_cpus[id / 8], (1 << (id % 8)));
+}
+
+void ap_start64(void)
+{
+	reset_apic();
+	load_idt();
+	setup_gdt_tss();
+	save_id();
+	enable_apic();
+	enable_x2apic();
+	sti();
+	atomic_fetch_inc(&cpu_online_count);
+	asm volatile("1: hlt; jmp 1b");
 }
