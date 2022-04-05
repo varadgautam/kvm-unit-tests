@@ -14,6 +14,9 @@
 #include "apic.h"
 #include "apic-defs.h"
 #include "asm/setup.h"
+#include "atomic.h"
+#include "processor.h"
+#include "smp.h"
 
 extern char edata;
 
@@ -195,7 +198,22 @@ static void setup_segments64(void)
 		"1:"
 		:: "r" ((u64)KERNEL_DS), "i" (KERNEL_CS));
 }
+#endif
 
+static void setup_gdt_tss(void)
+{
+	size_t tss_offset;
+
+	/* 64-bit setup_tss does not use the stacktop argument.  */
+	tss_offset = setup_tss(NULL);
+	load_gdt_tss(tss_offset);
+
+#ifdef CONFIG_EFI
+	setup_segments64();
+#endif
+}
+
+#ifdef CONFIG_EFI
 static efi_status_t setup_memory_allocator(efi_bootinfo_t *efi_bootinfo)
 {
 	int i;
@@ -292,17 +310,6 @@ static void setup_page_table(void)
 	write_cr3((ulong)&ptl4);
 }
 
-static void setup_gdt_tss(void)
-{
-	size_t tss_offset;
-
-	/* 64-bit setup_tss does not use the stacktop argument.  */
-	tss_offset = setup_tss(NULL);
-	load_gdt_tss(tss_offset);
-
-	setup_segments64();
-}
-
 efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 {
 	efi_status_t status;
@@ -349,6 +356,7 @@ efi_status_t setup_efi(efi_bootinfo_t *efi_bootinfo)
 	mask_pic_interrupts();
 	setup_page_table();
 	enable_apic();
+	save_id();
 	ap_init();
 	enable_x2apic();
 	smp_init();
@@ -369,5 +377,27 @@ void setup_libcflat(void)
 		setup_env(env, size);
 		if ((str = getenv("BOOTLOADER")) && atol(str) != 0)
 			add_setup_arg("bootloader");
+	}
+}
+
+void save_id(void)
+{
+	set_bit(apic_id(), online_cpus);
+}
+
+void ap_start64(void)
+{
+	setup_gdt_tss();
+	reset_apic();
+	load_idt();
+	save_id();
+	enable_apic();
+	enable_x2apic();
+	sti();
+	asm volatile ("nop");
+	printf("setup: AP %d online\n", apic_id());
+	atomic_inc(&cpu_online_count);
+	while (1) {
+		;
 	}
 }

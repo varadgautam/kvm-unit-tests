@@ -31,6 +31,7 @@ extern u32 smp_stacktop;
 extern u8 stacktop;
 #endif
 atomic_t cpu_online_count = { .counter = 1 };
+unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
 
 static __attribute__((used)) void ipi(void)
 {
