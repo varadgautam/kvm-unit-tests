@@ -21,8 +21,12 @@ static volatile bool ipi_wait;
 static int _cpu_count;
 static atomic_t active_cpus;
 extern u8 rm_trampoline, rm_trampoline_end;
-#ifdef __i386__
+#if defined(__i386__) || defined(CONFIG_EFI)
 extern u8 ap_rm_gdt_descr;
+#endif
+#ifdef CONFIG_EFI
+extern u8 ap_rm_gdt, ap_rm_gdt_end;
+extern u8 ap_start32;
 #endif
 atomic_t cpu_online_count = { .counter = 1 };
 
@@ -158,6 +162,73 @@ static void setup_rm_gdt(void)
 	 * the vector code.
 	 */
 	sgdt(rm_gdt);
+#elif defined(CONFIG_EFI)
+	/*
+	 * The realmode trampoline on EFI has the following layout:
+	 *
+	 * |rm_trampoline:
+	 * |sipi_entry:
+	 * |  <AP bootstrapping code called from SIPI>
+	 * |ap_rm_gdt:
+	 * |  <GDT used for 16-bit -> 32-bit trasition>
+	 * |ap_rm_gdt_descr:
+	 * |  <GDT descriptor for ap_rm_gdt>
+	 * |sipi_end:
+	 * |  <End of trampoline>
+	 * |rm_trampoline_end:
+	 *
+	 * After relocating to the lowmem address pointed to by realmode_trampoline,
+	 * the realmode GDT descriptor needs to contain the relocated address of
+	 * ap_rm_gdt.
+	 */
+	volatile struct descriptor_table_ptr *rm_gdt_descr =
+			(struct descriptor_table_ptr *) (&ap_rm_gdt_descr - &rm_trampoline);
+	rm_gdt_descr->base = (ulong) ((u32) (&ap_rm_gdt - &rm_trampoline));
+	rm_gdt_descr->limit = (u16) (&ap_rm_gdt_end - &ap_rm_gdt - 1);
+
+	/*
+	 * Since 1. compile time calculation of offsets is not allowed when
+	 * building with -shared, and 2. rip-relative addressing is not supported in
+	 * 16-bit mode, the relocated address of ap_rm_gdt_descr needs to be stored at
+	 * a location known to / accessible from the trampoline.
+	 *
+	 * Use the last two bytes of the trampoline page (REALMODE_GDT_LOWMEM) to store
+	 * a pointer to relocated ap_rm_gdt_descr addr. This way, the trampoline code can
+	 * find the relocated descriptor using the lowmem address at pa=REALMODE_GDT_LOWMEM,
+	 * and this relocated descriptor points to the relocated GDT.
+	 */
+	*((u16 *)(REALMODE_GDT_LOWMEM)) = (u16) (u64) rm_gdt_descr;
+
+	/*
+	 * Set up a call gate to the 32-bit entrypoint (ap_start32) within GDT, since
+	 * EFI may not load the 32-bit AP entrypoint (ap_start32) low enough
+	 * to be reachable from the SIPI vector.
+	 *
+	 * Since kvm-unit-tests builds with -shared, this location needs to be fetched
+	 * at runtime, and rip-relative addressing is not supported in 16-bit mode. This
+	 * prevents using a long jump to ap_start32 (`ljmpl $cs, $ap_start32`).
+	 *
+	 * As an alternative, a far return via `push $cs; push $label; lret` would require
+	 * an intermediate trampoline since $label must still be within 0 - 0xFFFF for
+	 * 16-bit far return to work.
+	 *
+	 * Using a call gate allows for an easier 16-bit -> 32-bit transition via `lcall`.
+	 *
+	 * GDT layout:
+	 *
+	 * Entry | Segment
+	 * 0	 | NULL descr
+	 * 1	 | Code segment descr
+	 * 2	 | Data segment descr
+	 * 3	 | Call gate descr
+	 *
+	 * This layout is only used for reaching 32-bit mode. APs load a 64-bit GDT
+	 * later during boot, which does not need to follow this layout.
+	 */
+	idt_entry_t *gate_descr = (idt_entry_t *) ((u8 *)(&ap_rm_gdt - &rm_trampoline)
+		+ 3 * sizeof(gdt_entry_t));
+	set_desc_entry(gate_descr, sizeof(gdt_entry_t), (void *) &ap_start32,
+		0x8 /* sel */, 0xc /* type */, 0 /* dpl */);
 #endif
 }
 
