@@ -16,6 +16,9 @@
 #include "asm/setup.h"
 #include "processor.h"
 #include "atomic.h"
+#include "asm/spinlock.h"
+
+struct spinlock ap_lock;
 
 extern char edata;
 extern unsigned char online_cpus[(MAX_TEST_CPUS + 7) / 8];
@@ -371,12 +374,14 @@ void save_id(void)
 
 void ap_start64(void)
 {
+	spin_lock(&ap_lock);
 	reset_apic();
 	load_idt();
 	setup_gdt_tss();
 	save_id();
 	enable_apic();
 	enable_x2apic();
+	spin_unlock(&ap_lock);
 	sti();
 	atomic_fetch_inc(&cpu_online_count);
 	asm volatile("1: hlt; jmp 1b");
