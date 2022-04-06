@@ -45,6 +45,9 @@ mb_boot_info:	.quad 0
 
 pt_root:	.quad ptl4
 
+ap_lock:
+	.long 0
+
 .section .init
 
 .code32
@@ -188,12 +191,18 @@ save_id:
 	retq
 
 ap_start64:
+.retry:
+	xor %eax, %eax
+	lock btsl %eax, ap_lock
+	jc .retry
 	call reset_apic
 	load_tss
 	call enable_apic
 	call save_id
 	call enable_x2apic
 	sti
+	xor %eax, %eax
+	lock btr %eax, ap_lock
 	nop
 	lock incw cpu_online_count
 
