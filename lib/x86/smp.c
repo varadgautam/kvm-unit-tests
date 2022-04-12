@@ -27,6 +27,8 @@ extern u8 ap_rm_gdt_descr;
 #ifdef CONFIG_EFI
 extern u8 ap_rm_gdt, ap_rm_gdt_end;
 extern u8 ap_start32;
+extern u32 smp_stacktop;
+extern u8 stacktop;
 #endif
 atomic_t cpu_online_count = { .counter = 1 };
 
@@ -249,6 +251,10 @@ void ap_init(void)
 	memcpy(rm_trampoline_dst, &rm_trampoline, rm_trampoline_size);
 
 	setup_rm_gdt();
+
+#ifdef CONFIG_EFI
+	smp_stacktop = ((u64) (&stacktop)) - PAGE_SIZE;
+#endif
 
 	/* INIT */
 	apic_icr_write(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT, 0);

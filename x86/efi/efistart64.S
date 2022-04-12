@@ -12,6 +12,9 @@
 .globl stacktop
 stacktop:
 
+.globl smp_stacktop
+smp_stacktop:	.long 0
+
 .align PAGE_SIZE
 .globl ptl2
 ptl2:
@@ -71,6 +74,10 @@ sipi_end:
 rm_trampoline_end:
 
 .code32
-.globl ap_start32
-ap_start32:
-	jmp ap_start32
+
+#include "../start32.S"
+
+.code64:
+
+ap_start64:
+	jmp ap_start64
