@@ -156,19 +156,7 @@ gdt32:
 	.quad 0x00cf93000000ffff // flat 32-bit data segment
 gdt32_end:
 
-.code16
-sipi_entry:
-	mov %cr0, %eax
-	or $1, %eax
-	mov %eax, %cr0
-	lgdtl gdt32_descr - sipi_entry
-	ljmpl $8, $ap_start32
-
-gdt32_descr:
-	.word gdt32_end - gdt32 - 1
-	.long gdt32
-
-sipi_end:
+#include "start16.S"
 
 .code32
 ap_start32:
@@ -243,9 +231,9 @@ online_cpus:
 
 ap_init:
 	cld
-	lea sipi_entry, %rsi
+	lea rm_trampoline, %rsi
 	xor %rdi, %rdi
-	mov $(sipi_end - sipi_entry), %rcx
+	mov $(rm_trampoline_end - rm_trampoline), %rcx
 	rep movsb
 	mov $APIC_DEFAULT_PHYS_BASE, %eax
 	movl $(APIC_DEST_ALLBUT | APIC_DEST_PHYSICAL | APIC_DM_INIT | APIC_INT_ASSERT), APIC_ICR(%rax)
